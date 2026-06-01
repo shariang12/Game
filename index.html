@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, touch-action: manipulation">
+    <title>Shariang Game - Ternak Ayam 3D</title>
+    <style>
+        :root {
+            --primary: #f0a500;
+            --secondary: #cf7500;
+            --bg: #4a7c59;
+            --panel: rgba(0,0,0,0.7);
+            --gold: #ffd700;
+            --green: #2ecc71;
+            --red: #e74c3c;
+            --blue: #3498db;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            background: #2c3e50;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: manipulation;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            max-width: 480px;
+            max-height: 850px;
+            background: linear-gradient(180deg, #87CEEB 0%, #98FB98 40%, #8B7355 100%);
+            box-shadow: 0 0 40px rgba(0,0,0,0.6);
+            overflow: hidden;
+            border-radius: 8px;
+        }
+
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        .ui-top {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .coin-display {
+            background: var(--panel);
+            color: var(--gold);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255,215,0,0.5);
+        }
+
+        .day-display {
+            background: var(--panel);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+
+        .ui-bottom {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .action-btn {
+            background: var(--panel);
+            color: white;
+            border: 2px solid rgba(255,255,255,0.5);
+            padding: 12px 16px;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 0.85rem;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+        .action-btn:active {
+            transform: scale(0.93);
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+        .action-btn.feed { border-color: #ff6b6b; }
+        .action-btn.water { border-color: #74b9ff; }
+        .action-btn.clean { border-color: #a29bfe; }
+        .action-btn.sell { border-color: #fdcb6e; background: rgba(253,203,110,0.3); }
+        .action-btn.collect { border-color: #55efc4; background: rgba(85,239,196,0.3); }
+
+        .message-popup {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.85);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 20;
+            backdrop-filter: blur(5px);
+        }
+        .message-popup.show {
+            opacity: 1;
+        }
+
+        .chicken-info {
+            position: absolute;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--panel);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 15px;
+            font-size: 0.75rem;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 10;
+            backdrop-filter: blur(5px);
+        }
+        .chicken-info.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+
+        <div class="ui-top">
+            <div class="coin-display">
+                <span>🪙</span> <span id="coinAmount">50</span>
+            </div>
+            <div class="day-display">
+                📅 Hari <span id="dayCount">1</span>
+            </div>
+        </div>
+
+        <div class="chicken-info" id="chickenInfo"></div>
+
+        <div class="ui-bottom">
+            <button class="action-btn feed" id="btnFeed">🌽 Beri Makan</button>
+            <button class="action-btn water" id="btnWater">💧 Minum</button>
+            <button class="action-btn clean" id="btnClean">🧹 Bersihkan</button>
+            <button class="action-btn collect" id="btnCollect">🥚 Ambil Telur</button>
+            <button class="action-btn sell" id="btnSell">💰 Jual Ayam</button>
+        </div>
+
+        <div class="message-popup" id="messagePopup"></div>
+    </div>
+
+    <script>
+        (function() {
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+
+            // UI Elements
+            const coinAmountEl = document.getElementById('coinAmount');
+            const dayCountEl = document.getElementById('dayCount');
+            const chickenInfoEl = document.getElementById('chickenInfo');
+            const messagePopup = document.getElementById('messagePopup');
+
+            // Canvas dimensions
+            let W, H;
+
+            // Game State
+            let coins = 50;
+            let day = 1;
+            let dayTimer = 0;
+            const DAY_DURATION = 120; // 120 detik per hari (bisa disesuaikan)
+
+            // Upgrade levels
+            let coopLevel = 1; // max 5
+            let feedQuality = 1; // max 5
+            let maxChickens = 3;
+
+            // Chickens array
+            let chickens = [];
+            let selectedChickenIndex = -1;
+
+            // Egg system
+            let eggs = []; // {x, y, collected: false, timer}
+
+            // Poop system (jika tidak dibersihkan)
+            let poops = [];
+
+            // Feed/Water status
+            let feedAvailable = 100;
+            let waterAvailable = 100;
+            let cleanliness = 100;
+
+            // 3D-ish environment elements
+            let groundY, coopX, coopY, coopW, coopH;
+
+            // Chicken class
+            class Chicken {
+                constructor(x, y) {
+                    this.x = x;
+                    this.y = y;
+                    this.size = 25 + Math.random() * 15;
+                    this.health = 80 + Math.random() * 20;
+                    this.happiness = 70 + Math.random() * 30;
+                    this.age = 0; // dalam hari
+                    this.eggProgress = 0; // 0-100, siap bertelur di 100
+                    this.eggLaid = false;
+                    this.color = this.randomColor();
+                    this.walkOffset = Math.random() * Math.PI * 2;
+                    this.walkSpeed = 0.3 + Math.random() * 0.7;
+                    this.walkAmplitude = 15 + Math.random() * 25;
+                    this.targetX = x;
+                    this.targetY = y;
+                    this.idleTimer = 0;
+                    this.isSleeping = false;
+                    this.sellValue = 30;
+                }
+
+                randomColor() {
+                    const colors = [
+                        '#f5f5dc', // beige
+                        '#fff8dc', // cornsilk
+                        '#faebd7', // antique white
+                        '#fff0db', // light cream
+                        '#d2b48c', // tan
+                        '#deb887', // burlywood
+                        '#f0e6d3', // eggshell
+                    ];
+                    return colors[Math.floor(Math.random() * colors.length)];
+                }
+
+                update(deltaTime, groundY, bounds) {
+                    if (this.health <= 0) return false; // mati
+
+                    this.age += deltaTime / DAY_DURATION;
+
+                    // Update target position (roaming)
+                    this.idleTimer -= deltaTime;
+                    if (this.idleTimer <= 0) {
+                        this.targetX = bounds.minX + Math.random() * (bounds.maxX - bounds.minX);
+                        this.targetY = groundY - 30 - Math.random() * 50;
+                        this.idleTimer = 2 + Math.random() * 4;
+                    }
+
+                    // Move toward target
+                    const dx = this.targetX - this.x;
+                    const dy = this.targetY - this.y;
+                    const dist = Math.hypot(dx, dy);
+                    if (dist > 3) {
+                        const speed = 20 + this.walkSpeed * 10;
+                        this.x += (dx / dist) * speed * deltaTime;
+                        this.y += (dy / dist) * speed * deltaTime;
+                    }
+
+                    // Wobble animation
+                    this.walkOffset += deltaTime * this.walkSpeed * 3;
+
+                    // Egg progress
+                    if (this.health > 40 && this.happiness > 30 && !this.eggLaid) {
+                        this.eggProgress += deltaTime * (5 + feedQuality * 2);
+                        if (this.eggProgress >= 100) {
+                            this.eggProgress = 100;
+                            this.eggLaid = true;
+                            // Spawn egg near chicken
+                            eggs.push({
+                                x: this.x + (Math.random() - 0.5) * 20,
+                                y: this.y + 10,
+                                collected: false,
+                                timer: 0
+                            });
+                        }
+                    }
+
+                    // Health decay over time
+                    if (feedAvailable < 20) this.health -= deltaTime * 2;
+                    if (waterAvailable < 20) this.health -= deltaTime * 1.5;
+                    if (cleanliness < 30) this.health -= deltaTime * 1;
+
+                    // Happiness decay
+                    this.happiness -= deltaTime * 0.5;
+                    if (this.happiness < 0) this.happiness = 0;
+
+                    // Update sell value based on health & age
+                    this.sellValue = Math.floor(30 + this.health * 0.5 + this.age * 2);
+
+                    return this.health > 0;
+                }
+
+                draw(ctx, isSelected) {
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+
+                    const bobY = Math.sin(this.walkOffset) * 3;
+                    const size = this.size;
+
+                    // Shadow
+                    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+                    ctx.beginPath();
+                    ctx.ellipse(0, size * 0.7, size * 0.6, size * 0.2, 0, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Body
+                    const bodyY = -size * 0.3 + bobY;
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.ellipse(0, bodyY, size * 0.7, size * 0.55, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+
+                    // Wing
+                    ctx.fillStyle = this.darkenColor(this.color, 0.15);
+                    ctx.beginPath();
+                    ctx.ellipse(-size * 0.3, bodyY - size * 0.1, size * 0.35, size * 0.3, -0.3, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Head
+                    const headY = bodyY - size * 0.55;
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.arc(0, headY, size * 0.35, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Comb (jengger)
+                    ctx.fillStyle = '#e74c3c';
+                    ctx.beginPath();
+                    ctx.arc(0, headY - size * 0.3, size * 0.15, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(-size * 0.12, headY - size * 0.25, size * 0.1, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(size * 0.12, headY - size * 0.25, size * 0.1, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Beak
+                    ctx.fillStyle = '#f39c12';
+                    ctx.beginPath();
+                    ctx.moveTo(size * 0.2, headY - size * 0.05);
+                    ctx.lineTo(size * 0.45, headY + size * 0.05);
+                    ctx.lineTo(size * 0.2, headY + size * 0.15);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Eyes
+                    ctx.fillStyle = 'white';
+                    ctx.beginPath();
+                    ctx.arc(size * 0.15, headY - size * 0.08, size * 0.1, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = 'black';
+                    ctx.beginPath();
+                    ctx.arc(size * 0.17, headY - size * 0.08, size * 0.05, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Legs
+                    ctx.strokeStyle = '#e67e22';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(-size * 0.2, bodyY + size * 0.4);
+                    ctx.lineTo(-size * 0.25, bodyY + size * 0.7);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(size * 0.2, bodyY + size * 0.4);
+                    ctx.lineTo(size * 0.25, bodyY + size * 0.7);
+                    ctx.stroke();
+
+                    // Feet
+                    ctx.fillStyle = '#e67e22';
+                    ctx.beginPath();
+                    ctx.arc(-size * 0.25, bodyY + size * 0.75, size * 0.12, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(size * 0.25, bodyY + size * 0.75, size * 0.12, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Selection indicator
+                    if (isSelected) {
+                        ctx.strokeStyle = '#ffd700';
+                        ctx.lineWidth = 3;
+                        ctx.setLineDash([4, 3]);
+                        ctx.beginPath();
+                        ctx.arc(0, bodyY - size * 0.1, size * 0.9, 0, Math.PI * 2);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    }
+
+                    // Health bar (if selected)
+                    if (isSelected) {
+                        const barWidth = size * 1.5;
+                        const barY = bodyY - size * 0.9;
+                        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                        ctx.fillRect(-barWidth / 2, barY, barWidth, 4);
+                        ctx.fillStyle = this.health > 50 ? '#2ecc71' : this.health > 25 ? '#f39c12' : '#e74c3c';
+                        ctx.fillRect(-barWidth / 2, barY, barWidth * (this.health / 100), 4);
+                    }
+
+                    ctx.restore();
+                }
+
+                darkenColor(hex, amount) {
+                    const num = parseInt(hex.replace('#', ''), 16);
+                    const r = Math.max(0, (num >> 16) - 255 * amount);
+                    const g = Math.max(0, ((num >> 8) & 0x00FF) - 255 * amount);
+                    const b = Math.max(0, (num & 0x0000FF) - 255 * amount);
+                    return `rgb(${Math.floor(r)},${Math.floor(g)},${Math.floor(b)})`;
+                }
+            }
+
+            function resizeCanvas() {
+                const container = document.getElementById('gameContainer');
+                W = container.clientWidth;
+                H = container.clientHeight;
+                canvas.width = W;
+                canvas.height = H;
+                groundY = H * 0.75;
+                coopX = W * 0.15;
+                coopY = groundY - H * 0.18;
+                coopW = W * 0.35;
+                coopH = H * 0.15;
+            }
+
+            function initGame() {
+                resizeCanvas();
+                chickens = [];
+                // Spawn initial chickens
+                for (let i = 0; i < 2; i++) {
+                    chickens.push(new Chicken(
+                        W * 0.3 + Math.random() * W * 0.4,
+                        groundY - 40 - Math.random() * 30
+                    ));
+                }
+                eggs = [];
+                poops = [];
+                selectedChickenIndex = -1;
+                feedAvailable = 100;
+                waterAvailable = 100;
+                cleanliness = 100;
+                day = 1;
+                dayTimer = 0;
+                updateUI();
+            }
+
+            function updateUI() {
+                coinAmountEl.textContent = Math.floor(coins);
+                dayCountEl.textContent = day;
+            }
+
+            function showMessage(text, duration = 2000) {
+                messagePopup.textContent = text;
+                messagePopup.classList.add('show');
+                clearTimeout(messagePopup._timeout);
+                messagePopup._timeout = setTimeout(() => {
+                    messagePopup.classList.remove('show');
+                }, duration);
+            }
+
+            function showChickenInfo(index) {
+                if (index < 0 || index >= chickens.length) {
+                    chickenInfoEl.classList.remove('show');
+                    return;
+                }
+                const c = chickens[index];
+                chickenInfoEl.innerHTML = `
+                    ❤️ ${Math.floor(c.health)}% | 😊 ${Math.floor(c.happiness)}% | 🥚 ${Math.floor(c.eggProgress)}%
+                    <br>📅 ${Math.floor(c.age)} hari | 💰 ${c.sellValue} koin
+                `;
+                chickenInfoEl.classList.add('show');
+            }
+
+            function hideChickenInfo() {
+                chickenInfoEl.classList.remove('show');
+            }
+
+            function feedChickens() {
+                if (coins < 5) {
+                    showMessage('💰 Koin tidak cukup!');
+                    return;
+                }
+                coins -= 5;
+                feedAvailable = Math.min(100, feedAvailable + 30 * feedQuality);
+                chickens.forEach(c => {
+                    c.happiness = Math.min(100, c.happiness + 15);
+                    c.health = Math.min(100, c.health + 5);
+                });
+                showMessage('🌽 Ayam diberi makan!');
+                updateUI();
+            }
+
+            function waterChickens() {
+                if (coins < 3) {
+                    showMessage('💰 Koin tidak cukup!');
+                    return;
+                }
+                coins -= 3;
+                waterAvailable = Math.min(100, waterAvailable + 30);
+                chickens.forEach(c => {
+                    c.happiness = Math.min(100, c.happiness + 10);
+                    c.health = Math.min(100, c.health + 3);
+                });
+                showMessage('💧 Ayam diberi minum!');
+                updateUI();
+            }
+
+            function cleanCoop() {
+                if (coins < 4) {
+                    showMessage('💰 Koin tidak cukup!');
+                    return;
+                }
+                coins -= 4;
+                cleanliness = Math.min(100, cleanliness + 40);
+                poops = []; // bersihkan semua kotoran
+                showMessage('🧹 Kandang dibersihkan!');
+                updateUI();
+            }
+
+            function collectEggs() {
+                let collected = 0;
+                for (let i = 0; i < eggs.length; i++) {
+                    if (!eggs[i].collected) {
+                        eggs[i].collected = true;
+                        collected++;
+                    }
+                }
+                if (collected > 0) {
+                    const earn = collected * 10;
+                    coins += earn;
+                    showMessage(`🥚 Mendapat ${earn} koin dari ${collected} telur!`);
+                    updateUI();
+                } else {
+                    showMessage('🥚 Belum ada telur!');
+                }
+            }
+
+            function sellChicken() {
+                if (selectedChickenIndex >= 0 && selectedChickenIndex < chickens.length) {
+                    const chicken = chickens[selectedChickenIndex];
+                    const price = chicken.sellValue;
+                    coins += price;
+                    chickens.splice(selectedChickenIndex, 1);
+                    selectedChickenIndex = -1;
+                    hideChickenInfo();
+                    showMessage(`💰 Ayam terjual seharga ${price} koin!`);
+                    updateUI();
+                } else {
+                    showMessage('🐔 Pilih ayam terlebih dahulu! (Klik ayam)');
+                }
+            }
+
+            function updateGame(deltaTime) {
+                // Update day timer
+                dayTimer += deltaTime;
+                if (dayTimer >= DAY_DURATION) {
+                    dayTimer -= DAY_DURATION;
+                    day++;
+                    // Daily decrease resources
+                    feedAvailable = Math.max(0, feedAvailable - 15);
+                    waterAvailable = Math.max(0, waterAvailable - 15);
+                    cleanliness = Math.max(0, cleanliness - 20);
+                    
+                    // Add random poop
+                    if (Math.random() < 0.5) {
+                        poops.push({
+                            x: coopX + Math.random() * coopW,
+                            y: groundY - 5 + Math.random() * 15
+                        });
+                    }
+                    
+                    updateUI();
+                    showMessage(`📅 Hari ke-${day} dimulai!`, 1500);
+                }
+
+                // Update chickens and remove dead ones
+                const bounds = {
+                    minX: coopX,
+                    maxX: coopX + coopW,
+                    minY: groundY - 70,
+                    maxY: groundY
+                };
+                
+                for (let i = 0; i < chickens.length; i++) {
+                    const alive = chickens[i].update(deltaTime, groundY, bounds);
+                    if (!alive) {
+                        chickens.splice(i, 1);
+                        if (selectedChickenIndex >= i) selectedChickenIndex--;
+                        i--;
+                    }
+                }
+
+                // Decrease resources over time
+                feedAvailable = Math.max(0, feedAvailable - deltaTime * 0.5);
+                waterAvailable = Math.max(0, waterAvailable - deltaTime * 0.3);
+                cleanliness = Math.max(0, cleanliness - deltaTime * 0.2);
+            }
+
+            function draw() {
+                ctx.clearRect(0, 0, W, H);
+                
+                // Sky
+                const gradient = ctx.createLinearGradient(0, 0, 0, groundY);
+                gradient.addColorStop(0, '#87CEEB');
+                gradient.addColorStop(1, '#98FB98');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, W, groundY);
+                
+                // Ground
+                ctx.fillStyle = '#8B7355';
+                ctx.fillRect(0, groundY, W, H - groundY);
+                
+                // Grass texture
+                ctx.fillStyle = '#6B8E23';
+                for (let i = 0; i < 100; i++) {
+                    ctx.fillRect(i * 15, groundY - 5, 3, 8);
+                }
+                
+                // Coop (kandang)
+                ctx.fillStyle = '#D2B48C';
+                ctx.fillRect(coopX, coopY, coopW, coopH);
+                ctx.fillStyle = '#A0522D';
+                ctx.fillRect(coopX - 5, coopY - 15, coopW + 10, 20);
+                ctx.fillStyle = '#F5DEB3';
+                for (let i = 0; i < 6; i++) {
+                    ctx.fillRect(coopX + 10 + i * 30, coopY - 10, 20, 8);
+                }
+                
+                // Feed area
+                ctx.fillStyle = '#F4A460';
+                ctx.beginPath();
+                ctx.rect(coopX + 10, coopY + coopH - 25, 40, 20);
+                ctx.fill();
+                ctx.fillStyle = '#8B4513';
+                ctx.font = 'bold 12px sans-serif';
+                ctx.fillText('🌽', coopX + 22, coopY + coopH - 10);
+                
+                // Water area
+                ctx.fillStyle = '#87CEEB';
+                ctx.beginPath();
+                ctx.rect(coopX + 60, coopY + coopH - 25, 40, 20);
+                ctx.fill();
+                ctx.fillStyle = '#1E90FF';
+                ctx.fillText('💧', coopX + 72, coopY + coopH - 10);
+                
+                // Draw poops
+                poops.forEach(p => {
+                    ctx.fillStyle = '#654321';
+                    ctx.beginPath();
+                    ctx.ellipse(p.x, p.y, 4, 2, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                
+                // Draw eggs
+                eggs.forEach(egg => {
+                    if (!egg.collected) {
+                        ctx.fillStyle = '#FFF5E1';
+                        ctx.beginPath();
+                        ctx.ellipse(egg.x, egg.y, 6, 8, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.fillStyle = '#FFD700';
+                        ctx.font = '10px sans-serif';
+                        ctx.fillText('🥚', egg.x - 5, egg.y + 3);
+                    }
+                });
+                
+                // Draw chickens
+                for (let i = 0; i < chickens.length; i++) {
+                    chickens[i].draw(ctx, i === selectedChickenIndex);
+                }
+                
+                // Draw resource bars
+                ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                ctx.fillRect(coopX, coopY - 25, 150, 20);
+                ctx.fillStyle = '#FF6B6B';
+                ctx.fillRect(coopX, coopY - 25, (feedAvailable / 100) * 50, 8);
+                ctx.fillStyle = '#74B9FF';
+                ctx.fillRect(coopX + 55, coopY - 25, (waterAvailable / 100) * 50, 8);
+                ctx.fillStyle = '#A29BFE';
+                ctx.fillRect(coopX + 110, coopY - 25, (cleanliness / 100) * 40, 8);
+                
+                ctx.fillStyle = 'white';
+                ctx.font = '8px sans-serif';
+                ctx.fillText('🌽', coopX - 5, coopY - 18);
+                ctx.fillText('💧', coopX + 50, coopY - 18);
+                ctx.fillText('🧹', coopX + 105, coopY - 18);
+            }
+
+            // Touch handling for selecting chicken
+            function handleCanvasClick(e) {
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                
+                let clientX, clientY;
+                if (e.touches) {
+                    clientX = e.touches[0].clientX;
+                    clientY = e.touches[0].clientY;
+                    e.preventDefault();
+                } else {
+                    clientX = e.clientX;
+                    clientY = e.clientY;
+                }
+                
+                const canvasX = (clientX - rect.left) * scaleX;
+                const canvasY = (clientY - rect.top) * scaleY;
+                
+                // Find clicked chicken
+                let newSelected = -1;
+                for (let i = 0; i < chickens.length; i++) {
+                    const c = chickens[i];
+                    const dx = canvasX - c.x;
+                    const dy = canvasY - c.y;
+                    const dist = Math.hypot(dx, dy);
+                    if (dist < c.size) {
+                        newSelected = i;
+                        break;
+                    }
+                }
+                
+                if (newSelected !== -1) {
+                    selectedChickenIndex = newSelected;
+                    showChickenInfo(selectedChickenIndex);
+                } else {
+                    selectedChickenIndex = -1;
+                    hideChickenInfo();
+                }
+            }
+            
+            canvas.addEventListener('click', handleCanvasClick);
+            canvas.addEventListener('touchstart', handleCanvasClick);
+            
+            // Game loop timing
+            let lastTimestamp = 0;
+            let lastUpdate = 0;
+            const FIXED_DELTA = 1 / 60; // 60 FPS
+            
+            function gameLoop(now) {
+                requestAnimationFrame(gameLoop);
+                if (!lastTimestamp) {
+                    lastTimestamp = now;
+                    return;
+                }
+                
+                let delta = Math.min(0.033, (now - lastTimestamp) / 1000);
+                if (delta <= 0) {
+                    lastTimestamp = now;
+                    return;
+                }
+                
+                updateGame(delta);
+                draw();
+                lastTimestamp = now;
+            }
+            
+            // Button handlers
+            document.getElementById('btnFeed').addEventListener('click', () => feedChickens());
+            document.getElementById('btnWater').addEventListener('click', () => waterChickens());
+            document.getElementById('btnClean').addEventListener('click', () => cleanCoop());
+            document.getElementById('btnCollect').addEventListener('click', () => collectEggs());
+            document.getElementById('btnSell').addEventListener('click', () => sellChicken());
+            
+            window.addEventListener('resize', () => {
+                resizeCanvas();
+                // Reposition chickens if needed
+                chickens.forEach(c => {
+                    c.x = Math.min(coopX + coopW - 20, Math.max(coopX + 20, c.x));
+                    c.y = Math.min(groundY - 10, Math.max(groundY - 80, c.y));
+                });
+            });
+            
+            initGame();
+            requestAnimationFrame(gameLoop);
+        })();
+    </script>
+</body>
+</html>
